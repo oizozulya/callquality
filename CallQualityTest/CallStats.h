@@ -7,24 +7,22 @@
 class CCallStats {
 public:
 	CCallStats();
-	CCallStats(int nFarEndId);
 	~CCallStats();
 
-	bool CalcTimeToCall();
-	void CallStarted();
-	void SetAnswered();
+	void SetCallStarted();
+	void SetCallAnswered();
+	void SetCallDeclined();
+	void SetCallRinging();
 
 	void SetFarEndId(int nId);
 	bool IsAnswered();
-	bool IsOutgoing();
 	int GetFarEndId();
-	int GetTimeToCall();
+	int GetTimeToRing();
 	void Clean();
 
 protected:
 	bool m_bAnswered;
-	bool m_bOutgoing;
 	int m_nStartTime;
-	int m_nTimeToCall;
+	int m_nTimeToRing;
 	int m_nFarEndId;
 };

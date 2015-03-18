@@ -8,14 +8,14 @@
 #include "CallQualityTestTool.h"
 
 unsigned int CCallingBot::m_nBotCount = 0; 
-std::mutex CCallingBot::m_Lock;
 
 CCallingBot::CCallingBot()
 :m_bShutdown(false),
-m_bOnACall(false),
-m_bRinging(false),
-m_bCaller(false)
+m_BotState(eSTATE_IDLE)
 {
+	std::queue<CMessage*> m_BotQueue;
+	std::mutex m_QueueLock;
+
 	m_nBotId = m_nBotCount;
 	printf("Creating bot with ID = %d \n", m_nBotId);
 	m_nBotCount++;
@@ -28,12 +28,8 @@ CCallingBot::~CCallingBot() {
 }
 
 bool CCallingBot::Initialize() {
-	//try
-	m_Lock.lock();//TODO Why do we need that?
+	//Add check for isInialized
 	m_BotThread = std::thread(&CCallingBot::RunMethod, this);
-	m_Lock.unlock();//TODO Why do we need that?
-	//catch
-	//Register();
 	return true;
 }
 
@@ -57,12 +53,11 @@ bool CCallingBot::PutMessage(CMessage* pMessage) {
 		printf("CCallingBot::PutMessage() Invalid message pointer was passed. Exiting. \n");
 		return false;
 	}
-
 	CMessage* pClone = pMessage->Clone();
 	
-	m_Lock.lock();
+	m_QueueLock.lock();
 	m_BotQueue.push(pClone);
-	m_Lock.unlock();
+	m_QueueLock.unlock();
 	return true;
 }
 
@@ -74,9 +69,9 @@ bool CCallingBot::SendMessage(CMessage* pMessage) {
 	return CMessagingBroker::Instance().PutMessage(pMessage);
 }
 
-bool CCallingBot::GetDecision() {
+bool CCallingBot::RandomAcceptCall() {
 	int res = (int)clock()%2;
-	printf("Decision on %d: %d \n", m_nBotId, (int)res);
+	//printf("Decision on %d: %d \n", m_nBotId, (int)res);
 	return (res == 1) ? true : false;
 }
 
@@ -111,141 +106,177 @@ void CCallingBot::OnMessageReceived(CMessage* pMessage) {
 	return;
 }
 
-int CCallingBot::OnCall(CMessage* pMessage) {
-	if (m_bOnACall) {
-		//Cannot accept call when have current call in ringing state
-		if (!m_bRinging && GetDecision()) {
-			EndCall();
-		}
-		else {
-			CMessage DeclineMessage(eMSG_DECLINE, m_nBotId, pMessage->m_nSourceId);
-			SendMessage(&DeclineMessage);
-			return 0;	//If decision is flase, then do nothing, leave this method.
-		}
-	}
-	//If current call was ended or no active call
-	//Start ringing and notify caller about ringing
-	m_CallStatistic.SetFarEndId(pMessage->m_nSourceId);
-	StartRingingAndAnswerCall();
-	return 1;
-}
-
-int CCallingBot::OnRing(CMessage* pMessage) {
-	//Calculate time-to-ring
-	if (m_CallStatistic.CalcTimeToCall()) {
-		return 1;
-	}
-	else {
-		printf("CCallingBot::OnRing Cannot calculate Time-To-Ring \n");
+//Callee handler
+int CCallingBot::OnCall(CMessage* pMessage) {	
+	if (m_BotState == eSTATE_RINGING || m_BotState == eSTATE_INIT_CALL || m_BotState == eSTATE_FAR_RINGING) {
+		//Cannot accept call when have current call is not established
+		printf("%d >----x %d \n",pMessage->m_nSourceId, m_nBotId);
+		CMessage DeclineMessage(eMSG_DECLINE, m_nBotId, pMessage->m_nSourceId);
+		SendMessage(&DeclineMessage);
 		return 0;
 	}
+
+	if (RandomAcceptCall()) {
+		if (m_BotState == eSTATE_ON_OWN_CALL || m_BotState == eSTATE_ON_INCOMING_CALL) {
+			EndCall(m_CallStatistic.GetFarEndId(), true);
+		}
+		//If current call was ended or no active call
+		//Start ringing and notify caller about ringing
+		m_CallStatistic.SetFarEndId(pMessage->m_nSourceId);
+		StartRinging();
+	} 
+	else {
+		printf("%d >----x %d \n",pMessage->m_nSourceId, m_nBotId);
+		CMessage DeclineMessage(eMSG_DECLINE, m_nBotId, pMessage->m_nSourceId);
+		SendMessage(&DeclineMessage);
+	}
+	return 0;
+}
+
+//Caller handlers
+int CCallingBot::OnRing(CMessage* pMessage) {
+	m_CallStatistic.SetCallRinging();
+	printf("%d >>-->> %d \n", m_nBotId, pMessage->m_nSourceId);
+
+	m_BotState = eSTATE_FAR_RINGING;
+	return 0;
 }
 
 int CCallingBot::OnAnswer(CMessage* pMessage) {
-	int rc = 0;
-	m_CallStatistic.SetAnswered();
+	m_CallStatistic.SetCallAnswered();
+	printf("%d =----= %d \n", m_nBotId, pMessage->m_nSourceId);
+
+	m_BotState = eSTATE_ON_OWN_CALL;
 	m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
-	return rc;
+	return 0;
 }
 
 int CCallingBot::OnDecline(CMessage* pMessage) {
-	int rc = 0;
-	m_CallStatistic.CalcTimeToCall();
-	rc = EndCall();	//end call locally (without sending message to far-end)
-	return rc;
+	m_CallStatistic.SetCallDeclined();
+	EndCall(pMessage->m_nSourceId, false);
+	return 0;
 }
 
+//For caller and callee
 int CCallingBot::OnEnd(CMessage* pMessage) {
-	int rc = 0;
-	if (m_bOnACall) {
-		rc = EndCall();		//End call locally
-	}
-	return rc;
-
+	EndCall(pMessage->m_nSourceId, false);	
+	return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////
 
 
 //Methods for messageHandlers
-void CCallingBot::StartRingingAndAnswerCall() {
-	m_bRinging = true;
-	m_bOnACall = true;
+void CCallingBot::StartRinging() {
 	CMessage RingMessage(eMSG_RING, m_nBotId, m_CallStatistic.GetFarEndId());
-	printf("StartRinging from %d to %d \n",m_nBotId, m_CallStatistic.GetFarEndId());
+	printf("%d >--->> %d \n",m_CallStatistic.GetFarEndId(), m_nBotId);
 	SendMessage(&RingMessage);
-	std::this_thread::sleep_for(std::chrono::milliseconds(CCallQualityTestTool::Instance().GetRandomDuration()));
-
-	CMessage AnswerMessage(eMSG_ANSWER, m_nBotId, m_CallStatistic.GetFarEndId());
-	printf("AnswerCall from %d to %d \n",m_nBotId, m_CallStatistic.GetFarEndId());
-	SendMessage(&AnswerMessage);
-	m_bRinging = false;
-	return;
+	
+	m_BotState = eSTATE_RINGING;
+	m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
 }
 
 // Methods for RunMethod
+//For caller
 int CCallingBot::MakeCall() {
-	m_bOnACall = true;
-	m_bCaller = true;
 	unsigned int nCallee = CCallQualityTestTool::Instance().GetRandomCallee(m_nBotId);
 	m_CallStatistic.SetFarEndId(nCallee);
-	printf("MakeCall from %d to %d \n",m_nBotId, m_CallStatistic.GetFarEndId());
-	CMessage CallMessage(eMSG_CALL, m_nBotId, m_CallStatistic.GetFarEndId());
-	SendMessage(&CallMessage);
-	m_CallStatistic.CallStarted();
+	m_CallStatistic.SetCallStarted();
+
+	printf("%d >----> %d \n", m_nBotId, m_CallStatistic.GetFarEndId());
+
+	CMessage CallMessage = CMessage(eMSG_CALL, m_nBotId, m_CallStatistic.GetFarEndId());
+	SendMessage(&CallMessage);	
+
+	m_BotState = eSTATE_INIT_CALL;
+	m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
 	return 1;
 }
 
-int CCallingBot::EndCall() {
-	printf("EndCall from %d to %d. Outgoing: %d \n",m_nBotId, m_CallStatistic.GetFarEndId(), m_bCaller);
-	if (m_bCaller) {//Only for call initiator
-		if (m_CallStatistic.IsAnswered()) {
-			CMessage EndMessage(eMSG_END, m_nBotId, m_CallStatistic.GetFarEndId());
-			SendMessage(&EndMessage);
-		}
+int CCallingBot::EndCall(int nFarEndId, bool bSendMessage) {
+	int nFarEndBotId = m_CallStatistic.GetFarEndId();
+	if (nFarEndId != nFarEndBotId) {
+		printf("%d ignored END_CALL message from %d \n", m_nBotId, nFarEndId);
+	}
+	if (m_BotState == eSTATE_FAR_RINGING) {
+		printf("%d %s---%s %d \n", m_nBotId, bSendMessage?"x":"-", bSendMessage?">>":"--",  m_CallStatistic.GetFarEndId());
 		SendStatistic();
 		ClearStats();
+	} else if (m_BotState == eSTATE_INIT_CALL) {
+		printf("%d %s----%s %d \n", m_nBotId, bSendMessage?"x":"-", bSendMessage?">":"-", m_CallStatistic.GetFarEndId());
+		SendStatistic();
+		ClearStats();
+	}  else if (m_BotState == eSTATE_ON_OWN_CALL) {
+		printf("%d %s----%s %d \n", m_nBotId, bSendMessage?"x":"-", bSendMessage?"=":"-", m_CallStatistic.GetFarEndId());
+		SendStatistic();
+		ClearStats();
+	} else if (m_BotState == eSTATE_ON_INCOMING_CALL) {
+		printf("%d %s----%s %d \n", m_CallStatistic.GetFarEndId(), bSendMessage?"=":"-", bSendMessage?"x":"-", m_nBotId);
+		ClearStats();
+	} else if (m_BotState == eSTATE_RINGING) {
+		printf("%d >---%s %d \n", m_CallStatistic.GetFarEndId(), bSendMessage?">x":"--", m_nBotId);
+		ClearStats();
+	} else {
+		printf("END_CALL for %d on IDLE STATE \n", m_nBotId, nFarEndBotId);
 	}
-	m_bOnACall = false;
-	m_bCaller = false;
-	m_bRinging = false;
+	if (bSendMessage) {
+		CMessage EndMessage(eMSG_END, m_nBotId, nFarEndBotId);
+		SendMessage(&EndMessage);
+	}
+
+	m_BotState = eSTATE_IDLE; //TODO O'RLY?
 	m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
 	return 1;	
+}
+
+//For callee
+void CCallingBot::AnswerCall() {
+	CMessage AnswerMessage(eMSG_ANSWER, m_nBotId, m_CallStatistic.GetFarEndId());
+	printf("%d >----= %d \n",m_CallStatistic.GetFarEndId(), m_nBotId);
+	SendMessage(&AnswerMessage);
+
+	m_BotState = eSTATE_ON_INCOMING_CALL;
+	m_nChangeStateTime = INT32_MAX;
+	return;
 }
 
 void CCallingBot::RunMethod() {
 
 	printf("CCallingBot::RunMethod() Starting. \n");
 
+	//SleepTime
 	m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
 	while(!this->m_bShutdown) {
-
 		if (clock() >= m_nChangeStateTime) {
-			//Time for party!
-			if (m_bOnACall) {
-				EndCall();
-			} else {
+			if (m_BotState == eSTATE_ON_OWN_CALL) {
+				//SpeakTime
+				//Caller may end call
+				EndCall(m_CallStatistic.GetFarEndId(), true);
+			} else if (m_BotState == eSTATE_IDLE) {
+				//SleepTime
+				//Idle bot may initiate call
 				MakeCall();
+			} else if (m_BotState == eSTATE_RINGING) {
+				//RingTime
+				//Ringing bot may accept call
+				AnswerCall();
 			}
 		}
 
-
+		CMessage* pMessage = NULL;
+		m_QueueLock.lock();
 		if (m_BotQueue.size() != 0) {
-			CMessage* pMessage = m_BotQueue.front();	//get first Message from queue
+			pMessage = m_BotQueue.front();	//get first Message from queue
+			m_BotQueue.pop();
+		}
+		m_QueueLock.unlock();
 			
-			if (pMessage != NULL) {
-				OnMessageReceived(pMessage);
-				m_BotQueue.pop();   // Remove message from Is it safe?
-				delete pMessage;
-			}
-			else {
-				printf("CCallingBot::RunMethod pMessage == NULL \n");
-			}
+		if (pMessage != NULL) {
+			OnMessageReceived(pMessage);
+			delete pMessage;
 		}
-		else {
-			//printf("CCallingBot::RunMethod m_Queue is empty, continue. \n");
-		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		//TODO to be changed with something else
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	}
 	printf("CCallingBot::RunMethod Exiting thread. \n");
 	return;
@@ -253,8 +284,8 @@ void CCallingBot::RunMethod() {
 
 bool CCallingBot::SendStatistic() {
 	bool rc = false;
-	printf("CCallingBot::SendStatistic(). \n");
-	rc = CTelemetryStorage::Instance().PutStatistic(m_CallStatistic.GetTimeToCall(), m_CallStatistic.IsAnswered());
+	printf("Statistics from %d: time-to-ring = %d, call %s. \n", m_nBotId, m_CallStatistic.GetTimeToRing(), m_CallStatistic.IsAnswered()? "answered":"not answered");
+	rc = CTelemetryStorage::Instance().PutStatistic(m_CallStatistic.GetTimeToRing(), m_CallStatistic.IsAnswered());
 	return rc;
 }
 

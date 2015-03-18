@@ -5,9 +5,17 @@
 #include "MessagingBroker.h"
 #include "CallStats.h"
 
+enum eBotState {
+	eSTATE_IDLE,
+	eSTATE_INIT_CALL,
+	eSTATE_FAR_RINGING,
+	eSTATE_RINGING,
+	eSTATE_ON_OWN_CALL,
+	eSTATE_ON_INCOMING_CALL
+};
+
 class CCallingBot {
-private:
-	static std::mutex m_Lock;	//TBD: static?
+
 public:
 	static unsigned int m_nBotCount; 
 
@@ -20,8 +28,9 @@ public:
 	bool Terminate();
 	bool Register();
 	int MakeCall();
-	void StartRingingAndAnswerCall();
-	int EndCall();
+	void StartRinging();
+	void AnswerCall();
+	int EndCall(int nFarEndId, bool bSendMessage);
 	void OnMessageReceived(CMessage* pMessage);
 	bool PutMessage(CMessage* pMessage);
 		
@@ -41,17 +50,11 @@ protected:
 	int OnDecline(CMessage* pMessage);
 	int OnEnd(CMessage* pMessage);
 
-	bool GetDecision();
+	bool RandomAcceptCall();
 
 
 public:
 	int m_nBotId;
-	//int m_nSleepTime;
-	//int m_nRingTime;
-	//int m_nSpeakTime;
-	bool m_bOnACall;
-	bool m_bRinging;
-	bool m_bCaller;
 
 	//call statistic
 	CCallStats m_CallStatistic;
@@ -61,5 +64,8 @@ protected:
 	std::queue<CMessage*> m_BotQueue;
 	bool m_bShutdown;
 	unsigned int m_nChangeStateTime;
+	eBotState m_BotState;
 
+private:
+	std::mutex m_QueueLock;
 };

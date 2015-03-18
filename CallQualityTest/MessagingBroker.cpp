@@ -31,9 +31,10 @@ CMessagingBroker& CMessagingBroker::Instance() {
 }
 
 bool CMessagingBroker::Initialize() {
-
+	//assert(!m_MessagingBroker.joinable());
+	//std::lock_guard<std::mutex> lk(m_Lock);
 	m_MessagingBroker = std::thread(&CMessagingBroker::RunMethod, this);
-
+	//Terminate();
 	return true;	//TODO: Exception?
 }
 
@@ -50,22 +51,18 @@ void CMessagingBroker::RunMethod() {
 	printf("CMessagingBroker::RunMethod() Starting. \n");
 	while(!this->m_bShutdown) {
 
+		CMessage* pMessage = NULL;
+		m_Lock.lock();
 		if (m_Queue.size() != 0) {
-			CMessage* pMessage = m_Queue.front();	//get first Message from queue
-			
-			if (pMessage != NULL) {
-				OnMessageReceived(pMessage);
-				m_Queue.pop();   // Remove message from Is it safe?
-				delete pMessage;
-			}
-			else {
-				printf("CMessagingBroker::RunMethod pMessage == NULL \n");
-			}
+			pMessage = m_Queue.front();	//get first Message from queue
+			m_Queue.pop();
 		}
-		else {
-			//printf("CMessagingBroker::RunMethod m_Queue is empty, continue. \n");
+		m_Lock.unlock();
+		if (pMessage != NULL) {
+			OnMessageReceived(pMessage);
+			delete pMessage;
 		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	}
 	printf("CMessagingBroker::RunMethod Exiting thread. \n");
 	return;
@@ -93,8 +90,8 @@ bool CMessagingBroker::SendMessage(CMessage* pMessage) {
 }
 
 void CMessagingBroker::OnMessageReceived(CMessage* pMessage) {
-	//printf("CMessagingBroker::OnMessageReceived message = %d \n", pMessage->m_nMessageType);
-	std::this_thread::sleep_for(std::chrono::milliseconds(CCallQualityTestTool::Instance().GetRandomDuration()));
+	//printf("CMessagingBroker::OnMessageReceived message from %d to %d \n", pMessage->m_nSourceId, pMessage->m_nDestId);
+	//std::this_thread::sleep_for(std::chrono::milliseconds(CCallQualityTestTool::Instance().GetRandomDuration()));
 	SendMessage(pMessage);
 	return;
 }

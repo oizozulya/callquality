@@ -49,15 +49,15 @@ void CTelemetryStorage::CalculateStatistics() {
 	printf("Percentage of answered calls = %f \n", nAnsCallPerc);
 	unsigned int n50Perc = CalculatePercentile(50);
 	printf("50th percentile = %d \n", n50Perc);
-	unsigned int n75Perc = CalculatePercentile(75);
-	printf("75th percentile = %d \n", n75Perc);
+	unsigned int n90Perc = CalculatePercentile(90);
+	printf("90th percentile = %d \n", n90Perc);
 	m_Lock.unlock();
 	return;
 }
 
 int CTelemetryStorage::CalculateAnsCallsPercentage() {
 	printf("m_nAnswCallCount = %d, m_nTotalCallCount = %d \n", m_nAnswCallCount, m_nTotalCallCount);
-	double tmpRes = double(m_nAnswCallCount / m_nTotalCallCount);
+	double tmpRes = (double)m_nAnswCallCount / m_nTotalCallCount;
 	int res = (int)(100 * tmpRes);
 	return res;
 }

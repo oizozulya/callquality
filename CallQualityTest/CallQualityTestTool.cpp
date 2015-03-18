@@ -102,20 +102,16 @@ int CCallQualityTestTool::Run() {
 
 bool CCallQualityTestTool::Initialize() {
 	CCallingBot* pBot;
-	char tmp;
 	m_pMessagingBroker = &CMessagingBroker::Instance();
 	m_pTelemetryStorage = &CTelemetryStorage::Instance();
 	while(CCallingBot::m_nBotCount < m_nNumberOfBots) {
 		pBot = new CCallingBot();
 	}
 	printf("Bots are created \n");
-	//cin >> tmp;
 	m_pMessagingBroker->Initialize();
 	printf("MessagingBroker is initialized. \n");
-	//cin >> tmp;
 	StartBots();
 	printf("MessagingBroker starting bots. \n");
-	//cin >> tmp;
 	return true;
 }
 

@@ -5,39 +5,38 @@
 #include <iostream>
 #include "CallStats.h"
 
-CCallStats::CCallStats() {
+CCallStats::CCallStats():m_bAnswered(false),
+m_nTimeToRing(0),
+m_nFarEndId(-1),
+m_nStartTime() {
 }
 
-CCallStats::CCallStats(int nFarEndId)
+/*CCallStats::CCallStats(int nFarEndId)
 :m_bAnswered(false),
 m_nTimeToCall(0),
 m_nFarEndId(-1),
 m_nStartTime()
 {
-}
+}*/
 
 CCallStats::~CCallStats() {
 }
 
-bool CCallStats::CalcTimeToCall() {
-	if (m_nStartTime == 0) {
-		printf("CCallStats::CalcTimeToCall() Invalid start time. \n");
-		return false;
-	}
-	else {
-		m_nTimeToCall = (clock() - m_nStartTime);
-		return true;
-	}
+void CCallStats::SetCallDeclined() {
+	m_nTimeToRing = (clock() - m_nStartTime);
+	m_bAnswered = false;
 }
 
-void CCallStats::SetAnswered() {
+void CCallStats::SetCallRinging() {
+	m_nTimeToRing = (clock() - m_nStartTime);
+}
+
+void CCallStats::SetCallAnswered() {
 	m_bAnswered = true;
-	return;
 }
 
-void CCallStats::CallStarted() {
+void CCallStats::SetCallStarted() {
 	m_nStartTime = clock();
-	return;
 }
 
 void CCallStats::SetFarEndId(int nId) {
@@ -48,24 +47,19 @@ bool CCallStats::IsAnswered() {
 	return m_bAnswered;
 }
 
-bool CCallStats::IsOutgoing() {
-	return m_bOutgoing;
-}
-
 int CCallStats::GetFarEndId() {
 	return m_nFarEndId;
 }
 
-int CCallStats::GetTimeToCall() {
-	return m_nTimeToCall;
+int CCallStats::GetTimeToRing() {
+	return m_nTimeToRing;
 }
 
 
 void CCallStats::Clean() {
 	m_bAnswered = false;
-	m_bOutgoing = false;
 	m_nStartTime = 0;
-	m_nTimeToCall = 0;
-	m_nFarEndId = 0;
+	m_nTimeToRing = 0;
+	m_nFarEndId = -1;
 	return;
 }
