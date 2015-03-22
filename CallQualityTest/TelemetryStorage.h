@@ -19,16 +19,15 @@ private:
 
 public:
 	virtual ~CTelemetryStorage();
-	bool Initialize();
-	bool Terminate();
 
 	static CTelemetryStorage& Instance();
 
 	bool PutStatistic(unsigned int nTimeToCall, bool bCallAnswered);
 
 	void CalculateStatistics();
-	unsigned int CalculatePercentile(int nPercentileLevel);
+	int CalculatePercentile(int nPercentileLevel);
 	int CalculateAnsCallsPercentage();
+	void Cleanup();
 	
 protected: 
 	CTelemetryStorage();

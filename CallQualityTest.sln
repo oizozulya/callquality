@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Express 2012 for Windows Desktop
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CallQualityTest", "CallQualityTest\CallQualityTest.vcxproj", "{160EE5E6-5264-4CD3-B812-2A865EA732FB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CallQualityTest_UnitTest", "CallQualityTest_UnitTest\CallQualityTest_UnitTest.vcxproj", "{FCD4AC3B-A6DD-48C1-AA44-87A35DBA1B7B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -13,6 +15,10 @@ Global
 		{160EE5E6-5264-4CD3-B812-2A865EA732FB}.Debug|Win32.Build.0 = Debug|Win32
 		{160EE5E6-5264-4CD3-B812-2A865EA732FB}.Release|Win32.ActiveCfg = Release|Win32
 		{160EE5E6-5264-4CD3-B812-2A865EA732FB}.Release|Win32.Build.0 = Release|Win32
+		{FCD4AC3B-A6DD-48C1-AA44-87A35DBA1B7B}.Debug|Win32.ActiveCfg = Debug|Win32
+		{FCD4AC3B-A6DD-48C1-AA44-87A35DBA1B7B}.Debug|Win32.Build.0 = Debug|Win32
+		{FCD4AC3B-A6DD-48C1-AA44-87A35DBA1B7B}.Release|Win32.ActiveCfg = Release|Win32
+		{FCD4AC3B-A6DD-48C1-AA44-87A35DBA1B7B}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

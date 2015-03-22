@@ -136,6 +136,7 @@ int CCallQualityTestTool::ShutDown() {
 	m_pMessagingBroker->Terminate();
 	StopBots();
 	delete m_pMessagingBroker;
+	m_pTelemetryStorage->Cleanup();
 	delete m_pTelemetryStorage;
 	return 1;
 }

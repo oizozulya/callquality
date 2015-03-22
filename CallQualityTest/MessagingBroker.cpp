@@ -13,10 +13,11 @@
 using namespace std;
 
 CMessagingBroker* CMessagingBroker::m_pSelf = NULL;
-std::mutex CMessagingBroker::m_Lock;
+mutex CMessagingBroker::m_Lock;
+
 
 CMessagingBroker::CMessagingBroker():m_bShutdown(false) {
-	std::queue<CMessage*> m_Queue;
+	priority_queue<pair<int, CMessage*>, vector<pair<int, CMessage*>>, Compare> m_Queue;
 }
 
 CMessagingBroker::~CMessagingBroker() {
@@ -31,11 +32,8 @@ CMessagingBroker& CMessagingBroker::Instance() {
 }
 
 bool CMessagingBroker::Initialize() {
-	//assert(!m_MessagingBroker.joinable());
-	//std::lock_guard<std::mutex> lk(m_Lock);
 	m_MessagingBroker = std::thread(&CMessagingBroker::RunMethod, this);
-	//Terminate();
-	return true;	//TODO: Exception?
+	return true;
 }
 
 bool CMessagingBroker::Terminate() {
@@ -51,22 +49,28 @@ void CMessagingBroker::RunMethod() {
 	printf("CMessagingBroker::RunMethod() Starting. \n");
 	while(!this->m_bShutdown) {
 
-		CMessage* pMessage = NULL;
+		pair<int, CMessage*> pPair(-1, NULL);
 		m_Lock.lock();
 		if (m_Queue.size() != 0) {
-			pMessage = m_Queue.front();	//get first Message from queue
-			m_Queue.pop();
+			pPair = m_Queue.top();
+			if (pPair.first <= clock()) {
+				m_Queue.pop();
+			} else {
+				pPair = pair<int, CMessage*>(-1, NULL);
+			}
 		}
 		m_Lock.unlock();
-		if (pMessage != NULL) {
-			OnMessageReceived(pMessage);
-			delete pMessage;
+		if (pPair.second != NULL) {
+			OnMessageReceived(pPair.second);
+			delete pPair.second;
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	}
 	printf("CMessagingBroker::RunMethod Exiting thread. \n");
 	return;
 }
+
+
 
 bool CMessagingBroker::PutMessage(CMessage* pMessage) {
 
@@ -76,9 +80,11 @@ bool CMessagingBroker::PutMessage(CMessage* pMessage) {
 	}
 
 	CMessage* pClone = pMessage->Clone();
+	int nRunOn = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
 	
 	m_Lock.lock();
-	m_Queue.push(pClone);
+	m_Queue.push(pair<int, CMessage*>(nRunOn, pClone));
+	//printf(" --%d---------> from %d to %d type %d runOn %d\n", clock(), pClone->m_nSourceId, pClone->m_nDestId, pClone->m_nMessageType, nRunOn);
 	m_Lock.unlock();
 	return true;
 }
@@ -91,7 +97,6 @@ bool CMessagingBroker::SendMessage(CMessage* pMessage) {
 
 void CMessagingBroker::OnMessageReceived(CMessage* pMessage) {
 	//printf("CMessagingBroker::OnMessageReceived message from %d to %d \n", pMessage->m_nSourceId, pMessage->m_nDestId);
-	//std::this_thread::sleep_for(std::chrono::milliseconds(CCallQualityTestTool::Instance().GetRandomDuration()));
 	SendMessage(pMessage);
 	return;
 }

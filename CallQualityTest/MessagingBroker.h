@@ -44,6 +44,14 @@ public:
 
 };
 
+class Compare {
+public:
+    bool operator() (const pair<int, CMessage*>& a, const pair<int, CMessage*>& b)
+    {
+        return a.first > b.first;
+    }
+};
+
 class CMessagingBroker {
 private: 
 	static std::mutex m_Lock;	//TBD: static?
@@ -77,13 +85,15 @@ protected:
 
 	//friend class CCallingBot;
 
-	std::queue<CMessage*> m_Queue;
+		
 	std::thread m_MessagingBroker;
 
 	bool m_bShutdown;
 
 public:
-		std::map<int, CCallingBot*> m_Bots;
+	//TODO move to private or protected (tests don't allow)
+	priority_queue<pair <int, CMessage*>, vector<pair<int, CMessage*>>, Compare> m_Queue;
+	map<int, CCallingBot*> m_Bots;
 
 };
 

@@ -26,6 +26,13 @@ CTelemetryStorage& CTelemetryStorage::Instance() {
 	return *m_pSelf;
 }
 
+void CTelemetryStorage::Cleanup() {
+	m_nAnswCallCount = 0;
+	m_nTotalCallCount = 0;
+	m_Stats.clear();
+	return;
+}
+
 
 bool CTelemetryStorage::PutStatistic(unsigned int nTimeToCall, bool bCallAnswered) {
 
@@ -57,17 +64,22 @@ void CTelemetryStorage::CalculateStatistics() {
 
 int CTelemetryStorage::CalculateAnsCallsPercentage() {
 	printf("m_nAnswCallCount = %d, m_nTotalCallCount = %d \n", m_nAnswCallCount, m_nTotalCallCount);
-	double tmpRes = (double)m_nAnswCallCount / m_nTotalCallCount;
-	int res = (int)(100 * tmpRes);
+	if (m_nTotalCallCount !=0) {
+		double tmpRes = (double)m_nAnswCallCount / m_nTotalCallCount;
+		res = (int)(100 * tmpRes);
+	}
+	else {
+		res = 0;
+	}
 	return res;
 }
 
-unsigned int CTelemetryStorage::CalculatePercentile(int  nPercentileLevel) {
+int CTelemetryStorage::CalculatePercentile(int  nPercentileLevel) {
 	int nIndex = 0;
 	printf("CTelemetryStorage::CalculatePercentile(%d).\n", nPercentileLevel);
 	if ((nPercentileLevel <= 0) || (nPercentileLevel >= 100)) {     //percentile level should be from 1 to 99
 		printf("Incorrect value of percentile level. Aborting. \n");
-		return 0;
+		return -1;
 	}
 
 	if (m_Stats.size() > 0) {
@@ -76,7 +88,7 @@ unsigned int CTelemetryStorage::CalculatePercentile(int  nPercentileLevel) {
 	}
 	else {
 		printf("m_Stats is empty, no data to calculate percentile. \n");
-		return 0;
+		return -1;
 	}
 	std::nth_element(m_Stats.begin(), m_Stats.begin() + nIndex, m_Stats.end());
 

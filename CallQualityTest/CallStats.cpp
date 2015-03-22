@@ -11,13 +11,6 @@ m_nFarEndId(-1),
 m_nStartTime() {
 }
 
-/*CCallStats::CCallStats(int nFarEndId)
-:m_bAnswered(false),
-m_nTimeToCall(0),
-m_nFarEndId(-1),
-m_nStartTime()
-{
-}*/
 
 CCallStats::~CCallStats() {
 }
