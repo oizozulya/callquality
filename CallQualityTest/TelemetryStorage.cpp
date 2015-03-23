@@ -3,6 +3,7 @@
 */
 
 #include <algorithm>
+#include <cmath>
 #include "TelemetryStorage.h"
 
 CTelemetryStorage* CTelemetryStorage::m_pSelf = NULL;
@@ -46,31 +47,38 @@ bool CTelemetryStorage::PutStatistic(unsigned int nTimeToCall, bool bCallAnswere
 	return true;
 }
 
-void CTelemetryStorage::CalculateStatistics() {
+void CTelemetryStorage::CalculateStatistics(std::ofstream& outputFile) {
 	for (std::vector<unsigned int>::iterator it = m_Stats.begin(); it != m_Stats.end(); it++) {
-		std::cout << *it << ' ';
+	outputFile << *it ;
+	outputFile << '\n';
 	}
-	std::cout << '\n';
 	m_Lock.lock();
 	double nAnsCallPerc = 	CalculateAnsCallsPercentage();
-	printf("Percentage of answered calls = %f \n", nAnsCallPerc);
+	//printf("Percentage of answered calls = %d \n", nAnsCallPerc);
+	outputFile << "Percentage of answered calls = " << nAnsCallPerc << "\n";
 	unsigned int n50Perc = CalculatePercentile(50);
-	printf("50th percentile = %d \n", n50Perc);
+	//printf("50th percentile = %d \n", n50Perc);
+	outputFile << "50th percentile = " << n50Perc << "\n";
 	unsigned int n90Perc = CalculatePercentile(90);
-	printf("90th percentile = %d \n", n90Perc);
+	//printf("90th percentile = %d \n", n90Perc);
+	outputFile << "90th percentile = " << n90Perc << "\n";
 	m_Lock.unlock();
 	return;
 }
 
 int CTelemetryStorage::CalculateAnsCallsPercentage() {
+	int res = 0;
 	printf("m_nAnswCallCount = %d, m_nTotalCallCount = %d \n", m_nAnswCallCount, m_nTotalCallCount);
 	if (m_nTotalCallCount !=0) {
 		double tmpRes = (double)m_nAnswCallCount / m_nTotalCallCount;
-		res = (int)(100 * tmpRes);
+		printf("tmpRes = %f \n", tmpRes);
+		tmpRes = floor(100 * tmpRes + 0.5);	//using floor() instead of round, that is not available 
+		res = (int)(tmpRes);
 	}
 	else {
 		res = 0;
 	}
+	printf("Percentage = %d \n", res);
 	return res;
 }
 

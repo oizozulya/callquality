@@ -10,10 +10,11 @@ namespace CallQualityTest_UnitTest
 	{
 	public:
 
-		TEST_METHOD_CLEANUP(Cleanup)
+		//Doesnt work. Why?
+		/*TEST_METHOD_CLEANUP(Cleanup)
 		{
 			CTelemetryStorage::Instance().Cleanup();
-		}
+		}*/
 		
 		TEST_METHOD(TestInstance)
 		{
@@ -21,12 +22,13 @@ namespace CallQualityTest_UnitTest
 			CTelemetryStorage* pTelemetryStorage2 = &CTelemetryStorage::Instance();
 
 			//Check if both pointers point to same object
-			//Assert::AreEqual(*pTelemetryStorage1, *pTelemetryStorage2);
+			Assert::IsTrue(pTelemetryStorage1 == pTelemetryStorage2);
 
 		}
 
 		TEST_METHOD(TestCalculateAnsCallsPercentage_EmptyAndRegularCase)
 		{
+			CTelemetryStorage::Instance().Cleanup();
 			CTelemetryStorage* pTelemetryStorage = &CTelemetryStorage::Instance();
 
 			Assert::AreEqual(0, pTelemetryStorage->CalculateAnsCallsPercentage());	//No statistics yet, percentage should be 0
@@ -47,6 +49,7 @@ namespace CallQualityTest_UnitTest
 
 		TEST_METHOD(TestCalculateAnsCallsPercentage_NoAnsweredCalls)
 		{
+			CTelemetryStorage::Instance().Cleanup();
 			CTelemetryStorage* pTelemetryStorage = &CTelemetryStorage::Instance();
 			pTelemetryStorage->PutStatistic(70, false);
 			pTelemetryStorage->PutStatistic(80, false);
@@ -54,11 +57,12 @@ namespace CallQualityTest_UnitTest
 			pTelemetryStorage->PutStatistic(100, false);
 
 			Assert::AreEqual(0, pTelemetryStorage->CalculateAnsCallsPercentage());	//No answered calls
-			
+			pTelemetryStorage->Cleanup();
 		}
 
 		TEST_METHOD(TestCalculateAnsCallsPercentage_AllCallsAnswered)
 		{
+			CTelemetryStorage::Instance().Cleanup();
 			CTelemetryStorage* pTelemetryStorage = &CTelemetryStorage::Instance();
 			pTelemetryStorage->PutStatistic(10, true);
 			pTelemetryStorage->PutStatistic(20, true);
@@ -71,8 +75,36 @@ namespace CallQualityTest_UnitTest
 			
 		}
 
+		TEST_METHOD(TestCalculateAnsCallsPercentage_CorrectnessOfRound)
+		{
+			CTelemetryStorage::Instance().Cleanup();
+			CTelemetryStorage* pTelemetryStorage = &CTelemetryStorage::Instance();
+
+			pTelemetryStorage->PutStatistic(10, true);
+			pTelemetryStorage->PutStatistic(20, true);
+			pTelemetryStorage->PutStatistic(30, true);
+			pTelemetryStorage->PutStatistic(40, true);
+			pTelemetryStorage->PutStatistic(50, true);
+			pTelemetryStorage->PutStatistic(60, true);
+			pTelemetryStorage->PutStatistic(70, false);
+			pTelemetryStorage->PutStatistic(80, false);
+			pTelemetryStorage->PutStatistic(90, false);
+			pTelemetryStorage->PutStatistic(100, false);
+			pTelemetryStorage->PutStatistic(85, false);
+			pTelemetryStorage->PutStatistic(95, false);
+			pTelemetryStorage->PutStatistic(110, false);
+
+
+			Assert::AreEqual(46, pTelemetryStorage->CalculateAnsCallsPercentage());	//Percentage is ~46,2%, should be rounded to 46%
+
+			pTelemetryStorage->PutStatistic(95, false);
+
+			Assert::AreEqual(43, pTelemetryStorage->CalculateAnsCallsPercentage()); //Percentage is ~42,8%, should be rounded to 43%
+		}
+
 		TEST_METHOD(TestCalculatePercentile_StatsEmpty)
 		{
+			CTelemetryStorage::Instance().Cleanup();
 			CTelemetryStorage* pTelemetryStorage = &CTelemetryStorage::Instance();
 
 			Assert::AreEqual(-1, pTelemetryStorage->CalculatePercentile(50));	//Stats are empty, no data to calculate percentile
@@ -81,6 +113,7 @@ namespace CallQualityTest_UnitTest
 
 		TEST_METHOD(TestCalculatePercentile_PercentileLevelInvalid)
 		{
+			CTelemetryStorage::Instance().Cleanup();
 			CTelemetryStorage* pTelemetryStorage = &CTelemetryStorage::Instance();
 
 			pTelemetryStorage->PutStatistic(10, true);
@@ -98,6 +131,7 @@ namespace CallQualityTest_UnitTest
 
 		TEST_METHOD(TestCalculatePercentile_OneElement)
 		{
+			CTelemetryStorage::Instance().Cleanup();
 			CTelemetryStorage* pTelemetryStorage = &CTelemetryStorage::Instance();
 
 			pTelemetryStorage->PutStatistic(10, true);
@@ -107,6 +141,7 @@ namespace CallQualityTest_UnitTest
 
 		TEST_METHOD(TestCalculatePercentile_CalculationCorrectness)
 		{
+			CTelemetryStorage::Instance().Cleanup();
 			CTelemetryStorage* pTelemetryStorage = &CTelemetryStorage::Instance();
 
 			// 3, 10, 20, 32, 45, 68, 70, 87, 90, 96 
@@ -130,6 +165,7 @@ namespace CallQualityTest_UnitTest
 
 		TEST_METHOD(TestCalculatePercentile_EdgeCase)
 		{
+			CTelemetryStorage::Instance().Cleanup();
 			CTelemetryStorage* pTelemetryStorage = &CTelemetryStorage::Instance();
 
 			pTelemetryStorage->PutStatistic(10, true);

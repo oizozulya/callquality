@@ -21,7 +21,6 @@ public:
 
 public: 
 	CCallingBot();
-	//CCallingBot(int nBotId);
 	~CCallingBot();
 
 	bool Initialize();
@@ -67,5 +66,7 @@ protected:
 	eBotState m_BotState;
 
 private:
+	std::mutex m_Lock;
 	std::mutex m_QueueLock;
+	condition_variable m_ConditionVariable;
 };

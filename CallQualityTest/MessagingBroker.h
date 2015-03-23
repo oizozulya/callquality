@@ -15,6 +15,7 @@
 #include <mutex>
 #include <thread>
 #include <map>
+#include <condition_variable>
 //#include "CallingBot.h"
 
 using namespace std;
@@ -37,7 +38,6 @@ public:
 	CMessage* Clone();
 
 public:
-	//unsigned int m_nMessageId;
 	eMessageType m_nMessageType;
 	unsigned int m_nSourceId;
 	unsigned int m_nDestId;
@@ -54,21 +54,17 @@ public:
 
 class CMessagingBroker {
 private: 
-	static std::mutex m_Lock;	//TBD: static?
+	static std::mutex m_Lock;	
 	static CMessagingBroker* m_pSelf;
 
 public:
 	~CMessagingBroker();
 	bool Initialize();
 	bool Terminate();
-	//bool StartBots();
 
 	static CMessagingBroker& Instance();
 
-	void OnMessageReceived(CMessage* message);
 	bool PutMessage(CMessage* message);
-	//CMessage* GetMessage();		replaced with m_Queue.front()
-	bool SendMessage(CMessage* message);
 		
 	/**
 	 * RunMethod used in reading messages from the message queue.
@@ -83,18 +79,18 @@ public:
 protected: 
 	CMessagingBroker();
 
-	//friend class CCallingBot;
-
-		
 	std::thread m_MessagingBroker;
 
 	bool m_bShutdown;
 
-public:
-	//TODO move to private or protected (tests don't allow)
-	priority_queue<pair <int, CMessage*>, vector<pair<int, CMessage*>>, Compare> m_Queue;
+
+public: 
 	map<int, CCallingBot*> m_Bots;
 
+private:
+	priority_queue<pair <int, CMessage*>, vector<pair<int, CMessage*>>, Compare> m_Queue;
+	mutex m_QueueLock;
+	condition_variable m_ConditionVariable;
 };
 
 #endif MESSAGINGBROKER_H

@@ -18,6 +18,7 @@ mutex CMessagingBroker::m_Lock;
 
 CMessagingBroker::CMessagingBroker():m_bShutdown(false) {
 	priority_queue<pair<int, CMessage*>, vector<pair<int, CMessage*>>, Compare> m_Queue;
+	condition_variable m_ConditionVariable;
 }
 
 CMessagingBroker::~CMessagingBroker() {
@@ -38,6 +39,7 @@ bool CMessagingBroker::Initialize() {
 
 bool CMessagingBroker::Terminate() {
 	m_bShutdown = true;
+	m_ConditionVariable.notify_all();
 	printf("CMessagingBroker::Terminate(): joining...\n");
 	m_MessagingBroker.join();
 	printf("CMessagingBroker::Terminate(): joined to thread.\n");
@@ -45,26 +47,37 @@ bool CMessagingBroker::Terminate() {
 }
 
 void CMessagingBroker::RunMethod() {
+	unique_lock<mutex> lock(m_QueueLock);
+	int nSleepTime = -1;
+	pair<int, CMessage*> pPair(-1, NULL);
 
 	printf("CMessagingBroker::RunMethod() Starting. \n");
 	while(!this->m_bShutdown) {
 
-		pair<int, CMessage*> pPair(-1, NULL);
 		m_Lock.lock();
 		if (m_Queue.size() != 0) {
 			pPair = m_Queue.top();
 			if (pPair.first <= clock()) {
 				m_Queue.pop();
 			} else {
+				nSleepTime = pPair.first - clock();	//calculate remaining time
 				pPair = pair<int, CMessage*>(-1, NULL);
 			}
 		}
+		else {
+			pPair = pair<int, CMessage*>(-1, NULL);
+			nSleepTime = 1000;
+		}
+		
 		m_Lock.unlock();
 		if (pPair.second != NULL) {
-			OnMessageReceived(pPair.second);
+			m_Bots[pPair.second->m_nDestId]->PutMessage(pPair.second);
 			delete pPair.second;
 		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		else {
+			m_ConditionVariable.wait_for(lock, std::chrono::milliseconds(nSleepTime));
+			//std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		}
 	}
 	printf("CMessagingBroker::RunMethod Exiting thread. \n");
 	return;
@@ -86,32 +99,14 @@ bool CMessagingBroker::PutMessage(CMessage* pMessage) {
 	m_Queue.push(pair<int, CMessage*>(nRunOn, pClone));
 	//printf(" --%d---------> from %d to %d type %d runOn %d\n", clock(), pClone->m_nSourceId, pClone->m_nDestId, pClone->m_nMessageType, nRunOn);
 	m_Lock.unlock();
+	m_ConditionVariable.notify_all();	//
 	return true;
-}
-
-bool CMessagingBroker::SendMessage(CMessage* pMessage) {
-	bool rc = false;
-	rc = m_Bots[pMessage->m_nDestId]->PutMessage(pMessage);
-	return rc;
-}
-
-void CMessagingBroker::OnMessageReceived(CMessage* pMessage) {
-	//printf("CMessagingBroker::OnMessageReceived message from %d to %d \n", pMessage->m_nSourceId, pMessage->m_nDestId);
-	SendMessage(pMessage);
-	return;
 }
 
 bool CMessagingBroker::RegisterBot(int nBotId, CCallingBot* pBot) {
 	m_Bots[nBotId] = pBot;
 	return true;
 }
-
-/* bool CMessagingBroker::StartBots() {
-	for (int i = 0; i < (int)m_Bots.size(); i++) {
-		m_Bots[i]->Initialize();
-	}
-	return true;
-}*/
 
 ///////////////////////////////////////////////////////////////////////
 

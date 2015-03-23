@@ -9,7 +9,8 @@
 #include "CallingBot.h"
 #include "MessagingBroker.h"
 
-unsigned int CCallQualityTestTool::m_unSeed = 0;
+unsigned int CCallQualityTestTool::m_unSeed = time(NULL);
+std::mutex seedMutex;
 CCallQualityTestTool* CCallQualityTestTool::m_pSelf = NULL;
 
 CCallQualityTestTool::CCallQualityTestTool()
@@ -31,15 +32,20 @@ CCallQualityTestTool& CCallQualityTestTool::Instance() {
 }
 
 unsigned int CCallQualityTestTool::GetRandomDuration() {
-	srand((unsigned int)clock() ^ m_unSeed++);
+	seedMutex.lock();
+	m_unSeed+=5;
+	srand((unsigned int)clock() + m_unSeed);
 	unsigned int rand = m_nBeginRange + std::rand() % (m_nEndRange - m_nBeginRange);
+	seedMutex.unlock();
 	//printf("CCallQualityTestTool::GetRandomDuration() : %d\n", rand);
 	return rand;
 }
 
 unsigned int CCallQualityTestTool::GetRandomCallee(int nCaller) {
-	srand((unsigned int)clock() ^ m_unSeed++);
+	seedMutex.lock();
+	srand(nCaller + (unsigned int)clock() + m_unSeed++);
 	unsigned int rand = std::rand() % (m_nNumberOfBots);
+	seedMutex.unlock();
 	if (rand == nCaller) {
 		rand = GetRandomCallee(nCaller);
 	}
@@ -57,48 +63,6 @@ void CCallQualityTestTool::SetParams(unsigned int nNumberOfBots, unsigned int nB
 	return;
 }
 
-
-int CCallQualityTestTool::Run() {
-	unsigned int numBots;
-	unsigned int begRange;
-	unsigned int endRange;
-
-	while(m_nNumberOfBots == 0) {
-		printf ("Please enter number of bots. Creating more than 100 bots could affect system: \n");
-		std::cin >> numBots;
-		if ((numBots > 1) && (numBots < 1000)) {
-			m_nNumberOfBots = numBots;
-		}
-		else {
-			printf("Incorrect value. Please try again. \n");
-		}
-	}
-
-	while(m_nBeginRange == 0) {
-		printf ("Please enter lowest value of delay in milliseconds (>0): \n");
-		std::cin >> begRange;
-		if ((begRange > 0) && (begRange < 100000)) {
-			m_nBeginRange = begRange;
-		}
-		else {
-			printf("Incorrect value. Please try again.\n");
-		}
-	}
-
-	while(m_nEndRange == 0) {
-		printf ("Please enter highest value of delay in milliseconds (>0). Should be more than %d: \n", m_nBeginRange);
-		std::cin >> endRange;
-		if ((endRange > 0) && (endRange > m_nBeginRange) && (endRange < 1000000)) {
-			m_nEndRange = endRange;
-		}
-		else {
-			printf("Incorrect value. Please try again.\n");
-		}
-	}
-
-	printf("m_nNumberOfBots = %d, m_nBeginRange = %d, m_nEndRange = %d \n", m_nNumberOfBots, m_nBeginRange, m_nEndRange);
-	return 1;
-}
 
 bool CCallQualityTestTool::Initialize() {
 	CCallingBot* pBot;
@@ -125,20 +89,28 @@ bool CCallQualityTestTool::StartBots() {
 bool CCallQualityTestTool::StopBots() {
 	for (unsigned int i = 0; i < m_nNumberOfBots; i++) {
 		CMessagingBroker::Instance().m_Bots[i]->Terminate();
-		delete CMessagingBroker::Instance().m_Bots[i];
 	}
 	return true;
 }
 
-int CCallQualityTestTool::ShutDown() {
-	printf("Shutting down the test tool.\n");
-
-	m_pMessagingBroker->Terminate();
-	StopBots();
+bool CCallQualityTestTool::Terminate() {
+	for (unsigned int i = 0; i < m_nNumberOfBots; i++) {
+		delete CMessagingBroker::Instance().m_Bots[i];
+	}
 	delete m_pMessagingBroker;
 	m_pTelemetryStorage->Cleanup();
 	delete m_pTelemetryStorage;
-	return 1;
+
+	return true;
+}
+
+bool CCallQualityTestTool::ShutDown() {
+	printf("Shutting down the test tool. Stop threads.\n");
+
+	m_pMessagingBroker->Terminate();
+	StopBots();
+
+	return true;
 }
 
 
@@ -190,9 +162,24 @@ int main (int __argc, char** __argv)
 	printf("Press any key to stop \n");
 	std::cin >> tmp;
 
-	test->m_pTelemetryStorage->CalculateStatistics();	
+	test->ShutDown();
+
+	try	{
+		outputFile.open("TestResults.txt");
+	}
+	catch (...)	{
+		return 1;
+	}
+	test->m_pTelemetryStorage->CalculateStatistics(outputFile);	
+	try	{
+		outputFile.close();
+	}
+	catch (...)	{
+		return 1;
+	}
 	std::cin >> tmp;
 	
-	test->ShutDown();
+	test->Terminate();
+
 	return 1;
 }

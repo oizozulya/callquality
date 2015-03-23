@@ -26,10 +26,9 @@ public:
 
 	static CCallQualityTestTool& Instance();
 
-	int Run();
-	int ShutDown();
 	bool Initialize();
 	bool Terminate();
+	bool ShutDown();
 	void SetParams(unsigned int m_nNumberOfBots, unsigned int nBeginRange, unsigned int m_nEndRange);
 	bool StartBots();
 	bool StopBots();

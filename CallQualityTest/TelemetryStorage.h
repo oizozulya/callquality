@@ -7,6 +7,7 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <fstream>
 #include "MessagingBroker.h"
 
 using namespace std;
@@ -24,7 +25,7 @@ public:
 
 	bool PutStatistic(unsigned int nTimeToCall, bool bCallAnswered);
 
-	void CalculateStatistics();
+	void CalculateStatistics(std::ofstream& outputFile);
 	int CalculatePercentile(int nPercentileLevel);
 	int CalculateAnsCallsPercentage();
 	void Cleanup();

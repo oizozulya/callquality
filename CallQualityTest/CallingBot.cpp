@@ -14,8 +14,9 @@ CCallingBot::CCallingBot()
 m_BotState(eSTATE_IDLE)
 {
 	std::queue<CMessage*> m_BotQueue;
+	std::mutex m_Lock;
 	std::mutex m_QueueLock;
-	std::mutex m_BotLock;
+	condition_variable m_ConditionVariable;
 
 	m_nBotId = m_nBotCount;
 	printf("Creating bot with ID = %d \n", m_nBotId);
@@ -36,6 +37,7 @@ bool CCallingBot::Initialize() {
 
 bool CCallingBot::Terminate() {
 	m_bShutdown = true;
+	m_ConditionVariable.notify_all();
 	printf("CCallingBot::Terminate(): joining...\n");
 	//try
 	m_BotThread.join();
@@ -56,9 +58,10 @@ bool CCallingBot::PutMessage(CMessage* pMessage) {
 	}
 	CMessage* pClone = pMessage->Clone();
 	
-	m_QueueLock.lock();
+	m_Lock.lock();
 	m_BotQueue.push(pClone);
-	m_QueueLock.unlock();
+	m_Lock.unlock();
+	m_ConditionVariable.notify_all();
 	return true;
 }
 
@@ -242,11 +245,13 @@ void CCallingBot::AnswerCall() {
 }
 
 void CCallingBot::RunMethod() {
+	unique_lock<mutex> lock(m_QueueLock);
 
 	printf("CCallingBot::RunMethod() Starting. \n");
 
-	//SleepTime
+	//set initial SleepTime
 	m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
+
 	while(!this->m_bShutdown) {
 		if (clock() >= m_nChangeStateTime) {
 			if (m_BotState == eSTATE_ON_OWN_CALL) {
@@ -265,19 +270,22 @@ void CCallingBot::RunMethod() {
 		}
 
 		CMessage* pMessage = NULL;
-		m_QueueLock.lock();
+		m_Lock.lock();
 		if (m_BotQueue.size() != 0) {
 			pMessage = m_BotQueue.front();	//get first Message from queue
 			m_BotQueue.pop();
 		}
-		m_QueueLock.unlock();
+		m_Lock.unlock();
 			
 		if (pMessage != NULL) {
 			OnMessageReceived(pMessage);
 			delete pMessage;
 		}
-		//TODO to be changed with something else
-		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		else {
+			m_ConditionVariable.wait_for(lock, std::chrono::milliseconds(m_nChangeStateTime - clock()));
+			//TODO to be changed with something else
+			//std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		}
 	}
 	printf("CCallingBot::RunMethod Exiting thread. \n");
 	return;
