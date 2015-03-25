@@ -35,15 +35,18 @@ public:
 	CMessage(const CMessage &in);
 	CMessage(eMessageType nType, unsigned int nSource, unsigned int nDest);
 	virtual ~CMessage();
-	CMessage* Clone();
+	CMessage* Clone();		//Allows to clone message
 
 public:
-	eMessageType m_nMessageType;
-	unsigned int m_nSourceId;
-	unsigned int m_nDestId;
+	eMessageType m_nMessageType;	//type of message
+	unsigned int m_nSourceId;		//Id of bot that sent a message
+	unsigned int m_nDestId;			//Id of bot that should receive a message
 
 };
 
+//////////////////////////////////////////////////////////////////////////////
+
+//Comparator for pairs (waitTime, Message)
 class Compare {
 public:
     bool operator() (const pair<int, CMessage*>& a, const pair<int, CMessage*>& b)
@@ -52,19 +55,21 @@ public:
     }
 };
 
+/////////////////////////////////////////////////////////////////////////////
+
 class CMessagingBroker {
 private: 
-	static std::mutex m_Lock;	
-	static CMessagingBroker* m_pSelf;
+	static std::mutex m_Lock;				//mutes for protection from multiple access to MessagingBroker's queue
+	static CMessagingBroker* m_pSelf;		//part of singleton implementation
 
 public:
 	~CMessagingBroker();
-	bool Initialize();
-	bool Terminate();
+	bool Initialize();						//starts thread for MessagingBroker
+	bool Terminate();						//stops thread for MessagingBroker
 
-	static CMessagingBroker& Instance();
+	static CMessagingBroker& Instance();	//part of singleton implementation
 
-	bool PutMessage(CMessage* message);
+	bool PutMessage(CMessage* message);		//Method for adding messages into MessageBroker's queue, could be called by bots
 		
 	/**
 	 * RunMethod used in reading messages from the message queue.
@@ -73,24 +78,23 @@ public:
 
 	friend class CCallingBot;
 
-	bool RegisterBot(int nBotId, CCallingBot* pBot);
+	bool RegisterBot(int nBotId, CCallingBot* pBot);	//Bot is added into m_Bots
 
 
 protected: 
 	CMessagingBroker();
 
-	std::thread m_MessagingBroker;
-
-	bool m_bShutdown;
+	std::thread m_MessagingBroker;			// MessagingBroker thread
+	bool m_bShutdown;						//Indicates that user is stopping application
 
 
 public: 
-	map<int, CCallingBot*> m_Bots;
+	map<int, CCallingBot*> m_Bots;			//this map stores info about all bots
 
 private:
-	priority_queue<pair <int, CMessage*>, vector<pair<int, CMessage*>>, Compare> m_Queue;
-	mutex m_QueueLock;
-	condition_variable m_ConditionVariable;
+	priority_queue<pair <int, CMessage*>, vector<pair<int, CMessage*>>, Compare> m_Queue;	//MessagingBroker's message queue
+	mutex m_QueueLock;						// mutex for proper handling of thread sleep
+	condition_variable m_ConditionVariable;	//condition variable for notifying all threads that are wait for m_QueueLock
 };
 
 #endif MESSAGINGBROKER_H

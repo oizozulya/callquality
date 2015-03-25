@@ -48,10 +48,10 @@ bool CTelemetryStorage::PutStatistic(unsigned int nTimeToCall, bool bCallAnswere
 }
 
 void CTelemetryStorage::CalculateStatistics(std::ofstream& outputFile) {
-	for (std::vector<unsigned int>::iterator it = m_Stats.begin(); it != m_Stats.end(); it++) {
+	/*for (std::vector<unsigned int>::iterator it = m_Stats.begin(); it != m_Stats.end(); it++) {
 	outputFile << *it ;
 	outputFile << '\n';
-	}
+	}*/
 	m_Lock.lock();
 	double nAnsCallPerc = 	CalculateAnsCallsPercentage();
 	//printf("Percentage of answered calls = %d \n", nAnsCallPerc);
@@ -71,7 +71,6 @@ int CTelemetryStorage::CalculateAnsCallsPercentage() {
 	printf("m_nAnswCallCount = %d, m_nTotalCallCount = %d \n", m_nAnswCallCount, m_nTotalCallCount);
 	if (m_nTotalCallCount !=0) {
 		double tmpRes = (double)m_nAnswCallCount / m_nTotalCallCount;
-		printf("tmpRes = %f \n", tmpRes);
 		tmpRes = floor(100 * tmpRes + 0.5);	//using floor() instead of round, that is not available 
 		res = (int)(tmpRes);
 	}

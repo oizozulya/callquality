@@ -39,9 +39,7 @@ bool CCallingBot::Terminate() {
 	m_bShutdown = true;
 	m_ConditionVariable.notify_all();
 	printf("CCallingBot::Terminate(): joining...\n");
-	//try
 	m_BotThread.join();
-	//catch
 	printf("CCallingBot::Terminate(): joined to thread.\n");
 	return true;
 }
@@ -154,7 +152,7 @@ int CCallingBot::OnRing(CMessage* pMessage) {
 	else {
 		printf("IGNORED RINGING %d >>-->> %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
 	}
-	return 0;
+	return 1;
 }
 
 int CCallingBot::OnAnswer(CMessage* pMessage) {
@@ -168,7 +166,7 @@ int CCallingBot::OnAnswer(CMessage* pMessage) {
 	else {
 		printf("IGNORED ANSWERED %d =----= %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
 	}
-	return 0;
+	return 1;
 }
 
 int CCallingBot::OnDecline(CMessage* pMessage) {
@@ -179,7 +177,7 @@ int CCallingBot::OnDecline(CMessage* pMessage) {
 	else {
 		printf("IGNORED DECLINED %d >>---x %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
 	}
-	return 0;
+	return 1;
 }
 
 //For caller and callee
@@ -190,7 +188,7 @@ int CCallingBot::OnEnd(CMessage* pMessage) {
 	else {
 		printf("IGNORED END %d =----x %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
 	}
-	return 0;
+	return 1;
 }
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -204,6 +202,7 @@ void CCallingBot::StartRinging() {
 	
 	m_BotState = eSTATE_RINGING;
 	m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
+	return;
 }
 
 // Methods for RunMethod

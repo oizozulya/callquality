@@ -151,9 +151,7 @@ int main (int __argc, char** __argv)
 	if (rc == RC_INCORRECT_PARAMS) {
 		return rc;	
 	}
-
 	
-
 	test = &CCallQualityTestTool::Instance();
 	test->SetParams(params[0], params[1], params[2]);
 	test->Initialize();
