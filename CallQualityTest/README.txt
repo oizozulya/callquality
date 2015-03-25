@@ -8,3 +8,5 @@ All timings in applications are random values from range that configured by user
 3. End of the range:more than begin range, but also not very high.
 
 Example of starting application from command prompt, from the path where it's located: "CallQualityTest.exe 5 1000 5000", where 5 is number of calling bots and [1000, 5000] is the range.
+
+Statistics will be available into TestResults.txt file.

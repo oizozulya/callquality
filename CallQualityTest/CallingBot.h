@@ -6,6 +6,7 @@
 #include "CallStats.h"
 
 enum eBotState {
+	eSTATE_UNDEFINED = -1,
 	eSTATE_IDLE,
 	eSTATE_INIT_CALL,
 	eSTATE_FAR_RINGING,
@@ -26,10 +27,12 @@ public:
 	bool Initialize();
 	bool Terminate();
 	bool Register();
+
 	int MakeCall();
 	void StartRinging();
 	void AnswerCall();
 	int EndCall(int nFarEndId, bool bSendMessage);
+
 	void OnMessageReceived(CMessage* pMessage);
 	bool PutMessage(CMessage* pMessage);
 		
@@ -39,8 +42,8 @@ public:
 	void RunMethod();
 
 protected:
-	bool SendMessage(CMessage* pMessage);
-	bool SendStatistic();
+	virtual bool SendMessage(CMessage* pMessage);
+	virtual bool SendStatistic();
 	void ClearStats();
 
 	int OnCall(CMessage* pMessage);

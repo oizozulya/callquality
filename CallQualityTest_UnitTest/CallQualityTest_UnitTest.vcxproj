@@ -97,7 +97,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="TelemetryStorageTestSuite.cpp" />
-    <ClCompile Include="unittest1.cpp" />
+    <ClCompile Include="CallingBotTestSuite.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CallQualityTest\CallQualityTest.vcxproj">

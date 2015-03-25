@@ -117,9 +117,15 @@ int CCallingBot::OnCall(CMessage* pMessage) {
 		printf("%d >----x %d %d\n",pMessage->m_nSourceId, m_nBotId, clock());
 		CMessage DeclineMessage(eMSG_DECLINE, m_nBotId, pMessage->m_nSourceId);
 		SendMessage(&DeclineMessage);
-		return 0;
+		return 1;
 	}
-
+	if (m_BotState == eSTATE_IDLE) {
+		//answer incoming call
+		m_CallStatistic.SetFarEndId(pMessage->m_nSourceId);
+		StartRinging();
+		return 1;
+	}
+	//else if m_BotState == eSTATE_ON_OWN_CALL || m_BotState == eSTATE_ON_INCOMING_CALL
 	if (RandomAcceptCall()) {
 		if (m_BotState == eSTATE_ON_OWN_CALL || m_BotState == eSTATE_ON_INCOMING_CALL) {
 			EndCall(m_CallStatistic.GetFarEndId(), true);
@@ -134,36 +140,56 @@ int CCallingBot::OnCall(CMessage* pMessage) {
 		CMessage DeclineMessage(eMSG_DECLINE, m_nBotId, pMessage->m_nSourceId);
 		SendMessage(&DeclineMessage);
 	}
-	return 0;
+	return 1;
 }
 
 //Caller handlers
 int CCallingBot::OnRing(CMessage* pMessage) {
-	m_CallStatistic.SetCallRinging();
-	printf("%d >>-->> %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
+	if (m_BotState == eSTATE_INIT_CALL) {
+		m_CallStatistic.SetCallRinging();
+		printf("%d >>-->> %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
 
-	m_BotState = eSTATE_FAR_RINGING;
+		m_BotState = eSTATE_FAR_RINGING;
+	}
+	else {
+		printf("IGNORED RINGING %d >>-->> %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
+	}
 	return 0;
 }
 
 int CCallingBot::OnAnswer(CMessage* pMessage) {
-	m_CallStatistic.SetCallAnswered();
-	printf("%d =----= %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
+	if (m_BotState == eSTATE_FAR_RINGING) {
+		m_CallStatistic.SetCallAnswered();
+		printf("%d =----= %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
 
-	m_BotState = eSTATE_ON_OWN_CALL;
-	m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
+		m_BotState = eSTATE_ON_OWN_CALL;
+		m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
+	}
+	else {
+		printf("IGNORED ANSWERED %d =----= %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
+	}
 	return 0;
 }
 
 int CCallingBot::OnDecline(CMessage* pMessage) {
-	m_CallStatistic.SetCallDeclined();
-	EndCall(pMessage->m_nSourceId, false);
+	if (m_BotState == eSTATE_INIT_CALL) {
+		m_CallStatistic.SetCallDeclined();
+		EndCall(pMessage->m_nSourceId, false);
+	}
+	else {
+		printf("IGNORED DECLINED %d >>---x %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
+	}
 	return 0;
 }
 
 //For caller and callee
 int CCallingBot::OnEnd(CMessage* pMessage) {
-	EndCall(pMessage->m_nSourceId, false);	
+	if (m_BotState == eSTATE_ON_OWN_CALL || m_BotState == eSTATE_ON_INCOMING_CALL) {
+		EndCall(pMessage->m_nSourceId, false);
+	}
+	else {
+		printf("IGNORED END %d =----x %d %d\n", m_nBotId, pMessage->m_nSourceId, clock());
+	}
 	return 0;
 }
 
@@ -199,9 +225,12 @@ int CCallingBot::MakeCall() {
 
 int CCallingBot::EndCall(int nFarEndId, bool bSendMessage) {
 	int nFarEndBotId = m_CallStatistic.GetFarEndId();
+
 	if (nFarEndId != nFarEndBotId) {
 		printf("%d ignored END_CALL message from %d %d\n", m_nBotId, nFarEndId, clock());
+		return 0;
 	}
+
 	if (m_BotState == eSTATE_FAR_RINGING) {
 		printf("%d %s---%s %d %d\n", m_nBotId, bSendMessage?"x":"-", bSendMessage?">>":"--",  m_CallStatistic.GetFarEndId(), clock());
 		SendStatistic();
@@ -222,13 +251,14 @@ int CCallingBot::EndCall(int nFarEndId, bool bSendMessage) {
 		ClearStats();
 	} else {
 		printf("END_CALL for %d on IDLE STATE %d\n", m_nBotId, clock());
+		return 0;
 	}
 	if (bSendMessage) {
 		CMessage EndMessage(eMSG_END, m_nBotId, nFarEndBotId);
 		SendMessage(&EndMessage);
 	}
 
-	m_BotState = eSTATE_IDLE; //TODO O'RLY?
+	m_BotState = eSTATE_IDLE; 
 	m_nChangeStateTime = clock() + CCallQualityTestTool::Instance().GetRandomDuration();
 	return 1;	
 }
@@ -283,8 +313,6 @@ void CCallingBot::RunMethod() {
 		}
 		else {
 			m_ConditionVariable.wait_for(lock, std::chrono::milliseconds(m_nChangeStateTime - clock()));
-			//TODO to be changed with something else
-			//std::this_thread::sleep_for(std::chrono::milliseconds(50));
 		}
 	}
 	printf("CCallingBot::RunMethod Exiting thread. \n");
